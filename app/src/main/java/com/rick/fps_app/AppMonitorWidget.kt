@@ -1,6 +1,7 @@
 package com.rick.fps_app
 
 import android.annotation.SuppressLint
+import android.app.usage.UsageStatsManager
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
@@ -52,10 +53,15 @@ class AppMonitorWidget : AppWidgetProvider() {
     private fun updateWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
         val remoteViews = RemoteViews(context.packageName, R.layout.widget_layout)
 
+        val foregroundTimeMillis = getAppBatteryUsage(context, context.packageName)
+        getAppBatteryUsage(context,context.packageName)
+
+        val foregroundTimeSeconds = foregroundTimeMillis / 1000
+
         remoteViews.setTextViewText(R.id.cpuTempValue, getCpuTemperature() + " °C")
         remoteViews.setTextViewText(R.id.gpuTempValue, getGpuTemperature() + " °C")
         remoteViews.setTextViewText(R.id.gpuFanValue, getGpuFanSpeed() + " RPM")
-        remoteViews.setTextViewText(R.id.batteryValue, getBatteryTemperature(context))
+        remoteViews.setTextViewText(R.id.batteryValue,foregroundTimeSeconds.toString())
 
         val fps = fpsMonitor.calculateFPS()
         val roundedFps = fps.toInt()
@@ -65,15 +71,23 @@ class AppMonitorWidget : AppWidgetProvider() {
     }
 
 
-    @SuppressLint("SetTextI18n")
-    fun getBatteryTemperature(context: Context): String {
-        val intent = context.registerReceiver(null, android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-        val temperature = intent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0)
+    @SuppressLint("MissingPermission")
+    fun getAppBatteryUsage(context: Context, packageName: String): Long {
+        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val endTime = System.currentTimeMillis()
+        val startTime = endTime - (24 * 60 * 60 * 1000)
 
-        val tempInCelsius = temperature?.div(10.0)?.toInt() ?: 0
-        val tempInFahrenheit = ((tempInCelsius * 9) / 5 + 32).toInt()
+        val usageStats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startTime, endTime)
 
-        return "$tempInCelsius°C / $tempInFahrenheit°F"
+        var totalTimeInForeground = 0L
+
+        for (appStats in usageStats) {
+            if (appStats.packageName == packageName) {
+                totalTimeInForeground += appStats.totalTimeInForeground
+            }
+        }
+
+        return totalTimeInForeground
     }
 
     private fun listThermalZones(): List<String> {

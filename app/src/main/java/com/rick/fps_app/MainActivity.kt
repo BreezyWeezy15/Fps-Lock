@@ -2,6 +2,7 @@ package com.rick.fps_app
 
 import android.annotation.SuppressLint
 import android.app.ActivityManager
+import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -26,6 +27,7 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -62,8 +64,38 @@ class MainActivity : AppCompatActivity() {
             startActivityForResult(intent, 1005)
         }
 
+        ensureUsageStatsPermission()
         showMain()
 
+    }
+
+    private fun ensureUsageStatsPermission() {
+        if (!hasUsageAccessPermission(this)) {
+            requestUsageAccessPermission()
+            Toast.makeText(this, "Please enable Usage Access for this app", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun requestUsageAccessPermission() {
+        val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+            data = Uri.parse("package:${packageName}")
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        startActivity(intent)
+    }
+
+    private fun hasUsageAccessPermission(context: Context): Boolean {
+        val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            appOps.unsafeCheckOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                android.os.Process.myUid(),
+                context.packageName
+            )
+        } else {
+            TODO("VERSION.SDK_INT < Q")
+        }
+        return mode == AppOpsManager.MODE_ALLOWED
     }
 
     @SuppressLint("ClickableViewAccessibility")
